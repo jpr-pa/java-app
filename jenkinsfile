@@ -1,0 +1,51 @@
+pipeline {
+    agent any
+
+    stages {
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    docker.build('build-the-web')
+                }
+            }
+        }
+        stage('Run Container') {
+            steps {
+                bat 'docker run --name my-container -d build-the-web'
+            }
+        }
+
+        stage('Stop and Remove Existing Container') {
+            steps {
+                script {
+                    def containerId = bat(script: 'docker ps -a -q -f name=my-container', returnStdout: true).trim()
+                    if (containerId) {
+                        bat "docker stop my-container"
+                        bat "docker rm my-container"
+                    }
+                    else {
+                echo "No container named 'my-container' found. Skipping stop and remove."
+                    }
+                }
+            }
+        }
+
+        stage('Run New Docker Container') {
+            steps {
+                script {
+                    // Run a new container from the built image
+                    bat "docker run -d --name edgewin -p 8083:80 build-the-web"
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'Pipeline completed successfully!'
+        }
+        failure {
+            echo 'Pipeline failed!'
+        }
+    }
+}
